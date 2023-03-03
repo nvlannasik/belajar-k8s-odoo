@@ -1,0 +1,87 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: odoo
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: odoo
+  name: database-deployment
+  labels:
+    app: db-postgresql
+spec:
+  minReadySeconds: 2
+  selector:
+    matchLabels:
+      app: db-postgresql
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: db-postgresql
+    spec:
+      containers:
+      - name: db-postgresql
+        image: bitnami/postgresql:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRESQL_USERNAME
+          value: odoo
+        - name: POSTGRESQL_PASSWORD
+          value: odoo
+        volumeMounts:
+        - name: postgresql-data
+          mountPath: /bitnami/postgresql
+      volumes:
+      - name: postgresql-data
+        persistentVolumeClaim:
+          claimName: postgresql-data
+---
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  namespace: odoo
+  name: postgresql-data
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+
+---
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  namespace: odoo
+  name: postgresql-data-pv
+spec:
+  capacity:
+    storage: 2Gi
+  accessModes:
+  - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: /mnt/data/postgresql-data
+
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: odoo
+  name: db-postgresql-service
+spec:
+  selector:
+    app: db-postgresql
+  ports:
+  - name: db-postgresql
+    port: 5432
+    targetPort: 5432
+  type: ClusterIP
